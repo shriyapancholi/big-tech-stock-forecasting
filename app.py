@@ -1,4 +1,4 @@
-# app.py  (handles yfinance MultiIndex columns correctly)
+# app.py  (clean version – handles yfinance MultiIndex columns)
 
 import pandas as pd
 import yfinance as yf
@@ -15,7 +15,10 @@ st.set_page_config(
 )
 
 st.title("📈 Big Tech Stock Price Forecaster")
-st.write("Powered by Prophet (time series forecasting)")
+st.write(
+    "Select a company on the left, choose how many years to forecast, "
+    "and the app will download historical data and generate a Prophet forecast."
+)
 
 # ---------------------------
 # Sidebar controls
@@ -44,6 +47,7 @@ st.sidebar.write(f"Ticker: **{ticker}**")
 # 1. Fetch stock data with yfinance
 # ---------------------------
 
+@st.cache_data
 def fetch_stock_data(ticker_symbol: str) -> pd.DataFrame:
     """
     Download daily OHLC data using yfinance and return a clean
@@ -59,11 +63,6 @@ def fetch_stock_data(ticker_symbol: str) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
-    # DEBUG: show raw data from yfinance
-    st.write("DEBUG: raw yfinance data (first 5 rows):")
-    st.write(df.head())
-    st.write("DEBUG: raw columns:", df.columns.tolist())
-
     # Keep only Date + Close
     df = df[["Date", "Close"]].copy()
 
@@ -77,16 +76,15 @@ def fetch_stock_data(ticker_symbol: str) -> pd.DataFrame:
     # Sort by date
     df = df.sort_values("ds").reset_index(drop=True)
 
-    # DEBUG: cleaned data
-    st.write("DEBUG: cleaned data (first 5 rows):")
-    st.write(df.head())
-    st.write("DEBUG: cleaned columns:", df.columns.tolist())
-
     return df
 
 
 st.subheader(f"Downloading data for {ticker}")
-data = fetch_stock_data(ticker)
+try:
+    data = fetch_stock_data(ticker)
+except Exception as e:
+    st.error(f"Could not download data for {ticker}: {e}")
+    st.stop()
 
 # ---------------------------
 # 2. Historical price chart
